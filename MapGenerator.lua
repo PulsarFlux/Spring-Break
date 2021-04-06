@@ -11,11 +11,14 @@ local nMaxCorridorLength = 3
 
 function MapGenerator.Generate(tImageBank, cPhysicsManager)
 
+    nMaxGenerationDepth = 0
+    cDeepestRoom = nil
     nDepthCriteria = math.floor(nGridHeight * nGridWidth / 2) - 1
-    local nNumRooms = love.math.random(nDepthCriteria + 2, nGridHeight * nGridWidth)
+    tDeepRooms = {}
+
+    local nNumRooms = love.math.random(math.floor(nGridHeight * nGridWidth * 2 / 3), nGridHeight * nGridWidth)
     local tRoomGrid = {}
     local tRooms = {}
-    tDeepRooms = {}
 
     for row = 1, nGridHeight, 1 do
         tRoomGrid[row] = {}
@@ -39,23 +42,22 @@ function MapGenerator.Generate(tImageBank, cPhysicsManager)
         tConnectionInfo, 1
     )
 
-    if #tDeepRooms > 0 then
-        local tBestDeepRooms = {}
-        for i, deepRoom in ipairs(tDeepRooms) do
-            if deepRoom.nNumChildren == 0 then
-                tBestDeepRooms[#tBestDeepRooms + 1] = deepRoom
-            end
+    local tBestDeepRooms = {}
+    for i, deepRoom in ipairs(tDeepRooms) do
+        if deepRoom.nNumChildren == 0 then
+            tBestDeepRooms[#tBestDeepRooms + 1] = deepRoom
         end
-
-        if #tBestDeepRooms == 0 then
-            tBestDeepRooms = tDeepRooms
-        end
-
-        tBestDeepRooms[love.math.random(#tBestDeepRooms)]:SetAsGoal(tImageBank, "prisoner")
-    else
-        print("Failed to find deep room to hide objective!")
-        return false
     end
+
+    local cGoalRoom = nil
+    if #tBestDeepRooms == 0 then
+        -- Deepest room will always have no children!
+        cGoalRoom = cDeepestRoom
+    else
+        cGoalRoom = tBestDeepRooms[love.math.random(#tBestDeepRooms)]
+    end
+
+    cGoalRoom:SetAsGoal(tImageBank, "prisoner")
 
     return tRooms
 end
@@ -72,6 +74,11 @@ function MapGenerator.GenerateRoom(
     local tGridEntry = tRoomGrid[nCurrentRow][nCurrentColumn]
     if tGridEntry.cRoom == nil then
         tGridEntry.cRoom = Room:new()
+    end
+
+    if nGenerationDepth > nMaxGenerationDepth then
+        cDeepestRoom = tGridEntry.cRoom
+        nMaxGenerationDepth = nGenerationDepth
     end
 
     if nGenerationDepth >= nDepthCriteria then
@@ -126,7 +133,7 @@ function MapGenerator.GenerateRoom(
             end
 
             for i, expansion in ipairs(tChosenExpansions) do
-                print("expansion - row " .. tostring(expansion.Row) .. " col " .. tostring(expansion.Col))
+                --print("expansion - row " .. tostring(expansion.Row) .. " col " .. tostring(expansion.Col))
 
                 local bExpandsX = expansion.Row == nCurrentRow
                 local nEdgeSize = (bExpandsX and tGridEntry.cRoom.nHeight) or tGridEntry.cRoom.nWidth
