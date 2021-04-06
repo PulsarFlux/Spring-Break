@@ -114,7 +114,7 @@ function love.update(dt)
             cCurrentRoom:SetGuardViewActive(true)
         end
 
-        bGameOver = cGuardManager:Update(dt, cMainChar)
+        bGameOver = cGuardManager:Update(dt, cMainChar, cCurrentRoom)
 
         if bWonLevel then
             bGameOver = false

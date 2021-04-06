@@ -12,6 +12,7 @@ Guard.vSize = nil
 Guard.nSize = 25
 
 Guard.nViewConeRadius = 150
+Guard.nViewConeRadiusSq = Guard.nViewConeRadius * Guard.nViewConeRadius
 Guard.nViewConeHalfAngle = math.pi / 4
 
 Guard.tSpottedViewConeColour = { 1, 0, 0, 0.2}
@@ -96,7 +97,7 @@ function Guard:Init(tImageBank, cRoom)
     end
 end
 
-function Guard:Update(dt, cMainChar)
+function Guard:Update(dt, cMainChar, cCurrentRoom)
     self.bCharSpotted = false
     self.bViewConeActive = false
 
@@ -131,17 +132,58 @@ function Guard:Update(dt, cMainChar)
     self.bGuardViewVisible = self.cRoom:GuardViewVisible()
     if self.bGuardViewActive then
         local vMainCharRel = cMainChar.vPos - self.vPos
-        local nMainCharDist = math.sqrt(vMainCharRel.x * vMainCharRel.x + vMainCharRel.y * vMainCharRel.y)
-        if nMainCharDist < self.nViewConeRadius then
-            local vPointing = Vector:new(math.cos(self.nAngle), math.sin(self.nAngle))
-            local nDot = (vMainCharRel.x * vPointing.x + vMainCharRel.y * vPointing.y) / nMainCharDist
-            if (nDot > math.cos(self.nViewConeHalfAngle)) then
-                self.bCharSpotted = true
-            end
-        end
+        self.bCharSpotted = self:CanSeeCharacter(vMainCharRel, cCurrentRoom)
     end
 
     return self.bCharSpotted
+end
+
+function Guard:CanSeeCharacter(vMainCharRel, cCurrentRoom)
+    local nMainCharDistSq = vMainCharRel.x * vMainCharRel.x + vMainCharRel.y * vMainCharRel.y
+    local nMainCharDist = math.sqrt(nMainCharDistSq)
+
+    if nMainCharDistSq < self.nViewConeRadiusSq then
+        if nMainCharDist == 0 then
+            return true
+        end
+
+        local vPointing = Vector:new(math.cos(self.nAngle), math.sin(self.nAngle))
+        local nDot = (vMainCharRel.x * vPointing.x + vMainCharRel.y * vPointing.y) / nMainCharDist
+
+        if (nDot > math.cos(self.nViewConeHalfAngle)) then
+            -- Check if view is blocked
+
+            local tBlockingRooms = { cCurrentRoom, (cCurrentRoom ~= self.cRoom and self.cRoom) or nil}
+            for i, tConnection in ipairs(self.cRoom.tConnections) do
+                -- If the character is in the same room we have to consider all
+                -- corridors as blocking, otherwise only the connecting corridor
+                local bAddCorridor = self.cRoom == cCurrentRoom or tConnection.Room == cCurrentRoom
+                if bAddCorridor then
+                    tBlockingRooms[#tBlockingRooms + 1] = tConnection.Corridor
+                end
+            end
+
+            local bIsViewBlocked = false
+            for i, cRoom in ipairs(tBlockingRooms) do
+                for k, cWall in ipairs(cRoom.tWalls) do
+                    bIsViewBlocked = cWall:Intersects(
+                        self.vPos, vMainCharRel, nMainCharDist, nMainCharDistSq)
+                    if bIsViewBlocked then
+                        cWall.bHighlight = true
+                        break
+                    end
+                end
+
+                if bIsViewBlocked then
+                    break
+                end
+            end
+
+            return bIsViewBlocked == false
+        end
+    end
+
+    return false
 end
 
 function Guard:DrawGuard()

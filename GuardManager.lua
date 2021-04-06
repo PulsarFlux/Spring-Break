@@ -17,11 +17,11 @@ function GuardManager:Init(tImageBank, tRooms)
     end
 end
 
-function GuardManager:Update(dt, cMainChar)
+function GuardManager:Update(dt, cMainChar, cCurrentRoom)
     local bCharIsSpotted = false
 
     for i, guard in ipairs(self.tGuards) do
-        bCharIsSpotted = bCharIsSpotted or guard:Update(dt, cMainChar)
+        bCharIsSpotted = bCharIsSpotted or guard:Update(dt, cMainChar, cCurrentRoom)
     end
 
     return bCharIsSpotted
