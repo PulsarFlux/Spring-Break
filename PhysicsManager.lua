@@ -11,21 +11,32 @@ function PhysicsManager:AddWall(cWall)
     self.tWalls[#self.tWalls + 1] = cWall
 end
 
-function PhysicsManager:Run(cMainChar)
-    self:RunWallCollision(cMainChar, self.tWalls)
+function PhysicsManager:Run(cMainChar, cCurrentRoom)
+    self:RunWallCollision(cMainChar, cCurrentRoom)
 
     cMainChar:UpdateImage()
 end
 
-function PhysicsManager:RunWallCollision(cMainChar, tWalls)
+function PhysicsManager:RunWallCollision(cMainChar, cCurrentRoom, tTestWalls)
 
     local charBox = cMainChar:GetCurrentBox()
 
     local collidingWalls = {}
 
-    for i, wall in ipairs(self.tWalls) do
-        if wall:Collides(charBox.vPos, charBox.vSize) then
-            collidingWalls[#collidingWalls + 1] = wall
+    if tTestWalls then
+        for i, wall in ipairs(tTestWalls) do
+            if wall:Collides(charBox.vPos, charBox.vSize) then
+                collidingWalls[#collidingWalls + 1] = wall
+            end
+        end
+    else
+        for i = 1, #cCurrentRoom.tConnections + 1, 1 do
+            local cCollideRoom = (i == 1 and cCurrentRoom) or cCurrentRoom.tConnections[i - 1].Corridor
+            for i, wall in ipairs(cCollideRoom.tWalls) do
+                if wall:Collides(charBox.vPos, charBox.vSize) then
+                    collidingWalls[#collidingWalls + 1] = wall
+                end
+            end
         end
     end
 
@@ -70,7 +81,7 @@ function PhysicsManager:RunWallCollision(cMainChar, tWalls)
             -- It should not be possible to get stuck calling this since
             -- we should only be able to colide with one wall per dimension
             -- and hence the second call should only find at most 1 wall.
-            self:RunWallCollision(cMainChar, collidingWalls)
+            self:RunWallCollision(cMainChar, cCurrentRoom, collidingWalls)
         end
     end
 end
@@ -81,7 +92,8 @@ function PhysicsManager:Draw()
     love.graphics.setColor({1, 0, 0, 1})
 
     for i, wall in ipairs(self.tWalls) do
-        love.graphics.rectangle("line", wall.vPos.x, wall.vPos.y, wall.vSize.x, wall.vSize.y)
+        love.graphics.rectangle((wall.bHighlight and "fill") or "line", wall.vPos.x, wall.vPos.y, wall.vSize.x, wall.vSize.y)
+        wall.bHighlight = false
     end
 
     love.graphics.setColor(r, g, b, a)

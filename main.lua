@@ -29,6 +29,7 @@ function Load()
     cPhysicsManager:Init()
 
     tRooms = MapGenerator.Generate(tImageBank, cPhysicsManager)
+
     if tRooms == false then
         Load()
     else
@@ -52,11 +53,15 @@ function Load()
         bGameOver = false
         bWonLevel = false
 
-        local font = love.graphics.getFont()
+        cFont = love.graphics.getFont()
         -- vGameOverPos = Vector:new()
-        cGameOverText = love.graphics.newText( font, "You were spotted! Press 'R' to retry!" )
-        cVictoryText = love.graphics.newText( font, "Well done! Press 'R' to replay!" )
+        cGameOverText = love.graphics.newText( cFont, "You were spotted! Press 'R' to retry!" )
+        cVictoryText = love.graphics.newText( cFont, "Well done! Press 'R' to replay!" )
+        cVictoryText = love.graphics.newText( cFont, "You escaped! Well done!" )
+        cReplayText = love.graphics.newText( cFont, "Press 'R' to replay!" )
     end
+
+    nStartRunTime = love.timer.getTime()
 end
 
 function love.load()
@@ -76,15 +81,27 @@ function love.update(dt)
 
         cMainChar:Move(dt, vScreenCentre)
 
-        cPhysicsManager:Run(cMainChar)
+        cPhysicsManager:Run(cMainChar, cCurrentRoom)
+
+        local bWonLevelBefore = bWonLevel
 
         for i, room in ipairs(tRooms) do
             bWonLevel = bWonLevel or room:Update(cMainChar)
         end
 
+        if bWonLevel and bWonLevelBefore == false then
+            nRunTime = love.timer.getTime() - nStartRunTime
+            if nBestRunTime == nil or nRunTime < nBestRunTime then
+                nBestRunTime = nRunTime
+            end
+            local sVictoryTimeString = string.format("Time to spring/break: %.3f seconds.", nRunTime)
+            cVictoryTimeText = love.graphics.newText( cFont, sVictoryTimeString )
+            sVictoryTimeString = string.format("Best time this session: %.3f seconds.", nBestRunTime)
+            cVictoryTimeText:add(sVictoryTimeString, 0, cVictoryTimeText:getHeight())
+        end
+
         local cMainCharBox = cMainChar:GetCurrentBox()
         local cOldRoom = cCurrentRoom
-        cCurrentRoom = (cCurrentRoom:Contains(cMainCharBox.vPos, cMainCharBox.vSize) and cCurrentRoom) or cCurrentRoom
         for i, tConnection in ipairs(cCurrentRoom.tConnections) do
             if tConnection.Room:Contains(cMainCharBox.vPos, cMainCharBox.vSize) then
                 cCurrentRoom = tConnection.Room
@@ -134,14 +151,20 @@ function love.draw()
         local r, g, b, a = love.graphics.getColor()
         love.graphics.setColor({0, 1, 0, 1})
 
+        local nTextScale = 3
         local nTextWidth = cVictoryText:getWidth()
-        love.graphics.draw( cVictoryText, cMainChar.vPos.x, cMainChar.vPos.y, 0, 3, 3, nTextWidth / 2)
+        local nTextHeight = cVictoryText:getHeight() * 3 * nTextScale -- Three lines
+        love.graphics.draw( cVictoryText, cMainChar.vPos.x, cMainChar.vPos.y - nTextHeight, 0, nTextScale, nTextScale, nTextWidth / 2)
+        
+        nTextWidth = cVictoryTimeText:getWidth()
+        nTextHeight = cVictoryTimeText:getHeight() * 2 * nTextScale -- Two lines
+        love.graphics.draw( cVictoryTimeText, cMainChar.vPos.x, cMainChar.vPos.y - nTextHeight, 0, nTextScale, nTextScale, nTextWidth / 2)
+        
+        nTextWidth = cReplayText:getWidth()
+        love.graphics.draw( cReplayText, cMainChar.vPos.x, cMainChar.vPos.y, 0, nTextScale, nTextScale, nTextWidth / 2)
 
         love.graphics.setColor(r, g, b, a)
     end
 
-    --cPhysicsManager:Draw()
-
-    --love.graphics.draw(textObject, 400, 300)
-    --love.graphics.print(textObject:getWidth() .. " " .. textObject:getHeight(), x, y)
+    -- Debug draw cPhysicsManager:Draw()
 end
